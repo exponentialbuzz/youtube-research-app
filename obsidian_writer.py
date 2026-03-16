@@ -45,6 +45,30 @@ def get_all_urls(note_title: str, folder: str, api_key: str) -> list[str]:
     return list(dict.fromkeys(urls))
 
 
+def append_query_result(note_title: str, folder: str, query: str, answer: str, api_key: str) -> bool:
+    filename = note_title.replace(" ", "_") + ".md"
+    path = f"{folder}/{filename}" if folder else filename
+    r = requests.get(f"{BASE}/vault/{path}", headers=_headers(api_key), verify=False, timeout=5)
+    if r.status_code != 200:
+        return False
+    section = "\n".join([
+        "",
+        f"## NotebookLM Query — {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"**Query:** {query}",
+        "",
+        answer,
+        "",
+    ])
+    content = r.text + section
+    w = requests.put(
+        f"{BASE}/vault/{path}",
+        headers={**_headers(api_key), "Content-Type": "text/markdown"},
+        data=content.encode("utf-8"),
+        verify=False,
+    )
+    return w.status_code in (200, 204)
+
+
 def write_note(note_title, folder, keyword, keywords_used, videos, api_key):
     filename = note_title.replace(" ", "_") + ".md"
     path = f"{folder}/{filename}" if folder else filename

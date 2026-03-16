@@ -56,6 +56,39 @@ async def _add_to_notebooklm(notebook_title: str, video_urls: list[str], logs: l
         return notebook_url
 
 
+async def _query_notebook(notebook_id: str, query: str, logs: list) -> str:
+    logs.append(f"Running query: {query}")
+    async with await NotebookLMClient.from_storage() as client:
+        response = await client.chat.ask(notebook_id=notebook_id, question=query)
+        answer = getattr(response, "answer", None) or getattr(response, "text", None) or str(response)
+        logs.append("Query complete.")
+        return answer
+
+
+def query_notebooklm(notebook_id: str, query: str) -> tuple[str, list[str]]:
+    logs = []
+    result = {"answer": "", "error": None}
+
+    def run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result["answer"] = loop.run_until_complete(_query_notebook(notebook_id, query, logs))
+        except Exception as e:
+            result["error"] = e
+            logs.append(f"Query error: {e}")
+        finally:
+            loop.close()
+
+    t = threading.Thread(target=run)
+    t.start()
+    t.join()
+
+    if result["error"]:
+        raise result["error"]
+    return result["answer"], logs
+
+
 def run_notebooklm(notebook_title: str, video_urls: list[str]) -> tuple[str, list[str]]:
     logs = []
     result = {"url": "", "error": None}

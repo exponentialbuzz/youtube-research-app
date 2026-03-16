@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 
 from keyword_expander import expand_keywords
 from youtube_scraper import collect_videos
-from obsidian_writer import write_note, list_folders, list_notes, get_all_urls
-from notebooklm_automation import run_notebooklm
+from obsidian_writer import write_note, list_folders, list_notes, get_all_urls, append_query_result
+from notebooklm_automation import run_notebooklm, query_notebooklm
 
 load_dotenv()
 
@@ -42,6 +42,9 @@ with col1:
     max_keywords = st.slider("Related keywords", min_value=1, max_value=10, value=3)
 with col2:
     max_per_keyword = st.slider("Videos per keyword", min_value=1, max_value=20, value=5)
+
+st.markdown("**NotebookLM query** *(optional — runs after sources are added)*")
+nlm_query = st.text_area("Query", placeholder="e.g. Summarize the key treatment approaches across all videos", label_visibility="collapsed", height=80)
 
 run_btn = st.button("🚀 Run Research", width="stretch", type="primary")
 
@@ -97,7 +100,20 @@ if run_btn:
                 for l in nb_logs:
                     log(f"      {l}")
                 if notebook_url:
+                    notebook_id = notebook_url.rstrip("/").split("/")[-1]
                     st.success(f"Research complete! [Open Notebook]({notebook_url})")
+
+                    if nlm_query.strip():
+                        log("      Running NotebookLM query...")
+                        try:
+                            answer, q_logs = query_notebooklm(notebook_id, nlm_query.strip())
+                            for l in q_logs:
+                                log(f"      {l}")
+                            if answer:
+                                ok = append_query_result(note_title, selected_folder, nlm_query.strip(), answer, obsidian_key)
+                                log(f"      Query result appended to note: {'ok' if ok else 'failed'}")
+                        except Exception as e:
+                            log(f"      Query failed: {e}")
                 else:
                     st.warning("Research complete, but NotebookLM URL not returned.")
             except Exception as e:
