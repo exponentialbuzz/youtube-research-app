@@ -7,8 +7,9 @@ After every accepted change to this project — new feature, bug fix, config cha
 Takes a keyword, expands it into related search terms using Claude, scrapes YouTube for videos, saves results to an Obsidian note, and syncs all video links to a NotebookLM notebook for AI summarization.
 
 ## Project location
-`C:\Users\shaynir\Desktop\Shay Obsidian\YouTube Research App\`
-This folder lives inside the user's Obsidian vault (`C:\Users\shaynir\Desktop\Shay Obsidian\`).
+`C:\Users\shaynir\youtube-research-app\`
+Moved OUT of the Obsidian vault to avoid Obsidian file sync interfering with Python module imports.
+Launcher: `C:\Users\shaynir\launcher.bat` → called by VBS at Windows Startup.
 
 ## Files
 - `app.py` — Streamlit UI (main entry point)
