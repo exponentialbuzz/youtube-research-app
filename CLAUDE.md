@@ -50,6 +50,15 @@ Matching is normalized (case-insensitive, underscores = spaces) to prevent dupli
 - **Obsidian**: Notes are appended to (not overwritten) when same note is selected
 - **NotebookLM**: Sources are deduplicated by title — existing titles are tracked before adding, duplicates deleted immediately after add
 
+## Git policy
+- **Before any significant change** — commit the current working state first
+- **After a feature is confirmed working by the user** — commit and push
+- **Never commit broken code** — only working states
+- **Commit message format**: `feat: description` / `fix: description` / `revert: description`
+- **Branch**: always `main`, no feature branches needed for now
+- **Never commit**: `.env` (API keys), `__pycache__`
+- Remote: `https://github.com/exponentialbuzz/youtube-research-app`
+
 ## User preferences
 - All new notes, docs, plans go into Obsidian via the REST API — not as filesystem files
 - Each app gets its own Obsidian folder; new app = new folder
