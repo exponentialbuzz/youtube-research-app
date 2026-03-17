@@ -1,13 +1,30 @@
-import sys, os
+import sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import streamlit as st
 from dotenv import load_dotenv
 
+LAST_RUN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".last_run.json")
+
+def load_last_run():
+    try:
+        with open(LAST_RUN_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_last_run(data: dict):
+    try:
+        with open(LAST_RUN_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
 from keyword_expander import expand_keywords
 from youtube_scraper import collect_videos
 from obsidian_writer import write_note, list_folders, list_notes, get_all_urls, append_query_result
 from notebooklm_automation import run_notebooklm, query_notebooklm
+from video_filter import load_brain, filter_videos
 
 load_dotenv()
 
@@ -22,18 +39,24 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**Obsidian Local REST API** must be running on `localhost:27124`")
 
+last = load_last_run()
+
 keyword = st.text_input("Research keyword", placeholder="e.g. machine learning for beginners")
 
 st.markdown("**Obsidian folder**")
 existing_folders = list_folders(obsidian_key) if obsidian_key else []
 folder_options = existing_folders + ["➕ Create new folder"]
-folder_choice = st.selectbox("Select folder", folder_options, label_visibility="collapsed")
+saved_folder = last.get("folder", "")
+folder_idx = folder_options.index(saved_folder) if saved_folder in folder_options else 0
+folder_choice = st.selectbox("Select folder", folder_options, index=folder_idx, label_visibility="collapsed")
 selected_folder = st.text_input("New folder name", placeholder="e.g. Finance Research") if folder_choice == "➕ Create new folder" else folder_choice
 
 st.markdown("**Note**")
 existing_notes = list_notes(selected_folder, obsidian_key) if (selected_folder and folder_choice != "➕ Create new folder" and obsidian_key) else []
 note_options = existing_notes + ["➕ Create new note"]
-note_choice = st.selectbox("Select note", note_options, label_visibility="collapsed")
+saved_note = last.get("note", "")
+note_idx = note_options.index(saved_note) if saved_note in note_options else 0
+note_choice = st.selectbox("Select note", note_options, index=note_idx, label_visibility="collapsed")
 note_title = st.text_input("New note title", placeholder="e.g. ML Research") if note_choice == "➕ Create new note" else note_choice
 notebook_title = f"notebook {note_title.strip().replace('_', ' ')}" if note_title.strip() else ""
 
@@ -44,7 +67,7 @@ with col2:
     max_per_keyword = st.slider("Videos per keyword", min_value=1, max_value=20, value=5)
 
 st.markdown("**NotebookLM query** *(optional — runs after sources are added)*")
-nlm_query = st.text_area("Query", placeholder="e.g. Summarize the key treatment approaches across all videos", label_visibility="collapsed", height=80)
+nlm_query = st.text_area("Query", placeholder="e.g. Summarize the key treatment approaches across all videos", label_visibility="collapsed", height=80, value=last.get("nlm_query", ""))
 
 run_btn = st.button("🚀 Run Research", width="stretch", type="primary")
 
@@ -58,6 +81,7 @@ if run_btn:
     for e in errors:
         st.error(e)
     if not errors:
+        save_last_run({"folder": selected_folder, "note": note_title, "nlm_query": nlm_query})
         log_area = st.empty()
         logs = []
 
@@ -66,6 +90,13 @@ if run_btn:
             log_area.code("\n".join(logs), language=None)
 
         with st.spinner("Working..."):
+            log("[0/4] Loading brain from Obsidian...")
+            brain = load_brain(obsidian_key)
+            if brain is None:
+                st.error("Could not load brain.md from Obsidian. Check your API key and that Obsidian is running.")
+                st.stop()
+            log(f"      Brain loaded. min_views={brain.get('min_views', '?')}, duration={brain.get('min_duration_minutes', '?')}-{brain.get('max_duration_minutes', '?')}min")
+
             log(f"[1/4] Expanding keywords for: '{keyword}'...")
             try:
                 related = expand_keywords(keyword, max_keywords, anthropic_key)
@@ -75,12 +106,17 @@ if run_btn:
                 st.error(f"Keyword expansion failed: {e}")
                 st.stop()
 
-            log(f"[2/4] Searching YouTube ({max_per_keyword} videos x {len(all_keywords)} keywords)...")
+            scrape_limit = max_per_keyword * 3
+            target = max_per_keyword * len(all_keywords)
+            log(f"[2/4] Searching YouTube ({scrape_limit} videos x {len(all_keywords)} keywords, target {target} after filtering)...")
             try:
-                videos = collect_videos(all_keywords, max_per_keyword)
-                log(f"      Found {len(videos)} unique videos.")
-                for v in videos:
+                videos = collect_videos(all_keywords, scrape_limit)
+                log(f"      Scraped {len(videos)} unique videos.")
+                filtered_videos, filter_log = filter_videos(videos, keyword, target, brain, anthropic_key)
+                log(f"      {filter_log}")
+                for v in filtered_videos:
                     log(f"      - {v['title']}")
+                videos = filtered_videos
             except Exception as e:
                 st.error(f"YouTube scraping failed: {e}")
                 st.stop()

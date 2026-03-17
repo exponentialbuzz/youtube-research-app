@@ -5,3 +5,4 @@ __pycache__/
 .DS_Store
 obsidian_extras.py
 start_app.bat
+.last_run.json

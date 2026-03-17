@@ -81,9 +81,8 @@ def write_note(note_title, folder, keyword, keywords_used, videos, api_key):
         f"*Keywords searched: {', '.join(keywords_used)}*",
         "",
     ] + [
-        line
+        f"- [{v['title']}]({v['url']}) | {v.get('channel', '')} | {v.get('view_count', '')} | {v.get('duration', '')} | {v.get('published', '')} | *{v.get('keyword', '')}*"
         for v in videos
-        for line in (f"- [{v['title']}]({v['url']})", f"  - *Keyword: {v['keyword']}*", "")
     ])
 
     content = (existing.text + new_section) if existing.status_code == 200 else f"# {note_title}\n{new_section}"
