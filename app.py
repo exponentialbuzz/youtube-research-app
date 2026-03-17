@@ -20,6 +20,16 @@ def save_last_run(data: dict):
     except Exception:
         pass
 
+def keyword_based_name(keyword: str, existing: list[str]) -> str:
+    base = keyword.strip()
+    existing_lower = [e.lower() for e in existing]
+    if base.lower() not in existing_lower:
+        return base
+    n = 2
+    while f"{base.lower()} {n}" in existing_lower:
+        n += 1
+    return f"{base} {n}"
+
 from keyword_expander import expand_keywords
 from youtube_scraper import collect_videos
 from obsidian_writer import write_note, list_folders, list_notes, get_all_urls, append_query_result
@@ -43,21 +53,33 @@ last = load_last_run()
 
 keyword = st.text_input("Research keyword", placeholder="e.g. machine learning for beginners")
 
+USE_KEYWORD = "🔑 Use keyword"
+
 st.markdown("**Obsidian folder**")
 existing_folders = list_folders(obsidian_key) if obsidian_key else []
-folder_options = existing_folders + ["➕ Create new folder"]
-saved_folder = last.get("folder", "")
+folder_options = [USE_KEYWORD] + existing_folders + ["➕ Create new folder"]
+saved_folder = last.get("folder", USE_KEYWORD)
 folder_idx = folder_options.index(saved_folder) if saved_folder in folder_options else 0
 folder_choice = st.selectbox("Select folder", folder_options, index=folder_idx, label_visibility="collapsed")
-selected_folder = st.text_input("New folder name", placeholder="e.g. Finance Research") if folder_choice == "➕ Create new folder" else folder_choice
+if folder_choice == USE_KEYWORD:
+    selected_folder = keyword_based_name(keyword, existing_folders) if keyword.strip() else ""
+elif folder_choice == "➕ Create new folder":
+    selected_folder = st.text_input("New folder name", placeholder="e.g. Finance Research")
+else:
+    selected_folder = folder_choice
 
 st.markdown("**Note**")
-existing_notes = list_notes(selected_folder, obsidian_key) if (selected_folder and folder_choice != "➕ Create new folder" and obsidian_key) else []
-note_options = existing_notes + ["➕ Create new note"]
-saved_note = last.get("note", "")
+existing_notes = list_notes(selected_folder, obsidian_key) if (selected_folder and folder_choice not in (USE_KEYWORD, "➕ Create new folder") and obsidian_key) else []
+note_options = [USE_KEYWORD] + existing_notes + ["➕ Create new note"]
+saved_note = last.get("note", USE_KEYWORD)
 note_idx = note_options.index(saved_note) if saved_note in note_options else 0
 note_choice = st.selectbox("Select note", note_options, index=note_idx, label_visibility="collapsed")
-note_title = st.text_input("New note title", placeholder="e.g. ML Research") if note_choice == "➕ Create new note" else note_choice
+if note_choice == USE_KEYWORD:
+    note_title = keyword_based_name(keyword, existing_notes) if keyword.strip() else ""
+elif note_choice == "➕ Create new note":
+    note_title = st.text_input("New note title", placeholder="e.g. ML Research")
+else:
+    note_title = note_choice
 notebook_title = f"notebook {note_title.strip().replace('_', ' ')}" if note_title.strip() else ""
 
 col1, col2 = st.columns(2)
@@ -81,7 +103,7 @@ if run_btn:
     for e in errors:
         st.error(e)
     if not errors:
-        save_last_run({"folder": selected_folder, "note": note_title, "nlm_query": nlm_query})
+        save_last_run({"folder": folder_choice, "note": note_choice, "nlm_query": nlm_query})
         log_area = st.empty()
         logs = []
 

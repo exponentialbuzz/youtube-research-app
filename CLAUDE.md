@@ -31,11 +31,11 @@ Launcher: `C:\Users\shaynir\launcher.bat` → called by VBS at Windows Startup.
 - **YouTube scraping**: `scrapetube.get_search(keyword, limit=n)` — no API key needed.
 
 ## Restarting the app after code changes
-After any code change, restart with:
+After every code change, Claude must restart the app by running this command with `run_in_background: true`:
 ```
-taskkill /F /IM python.exe /T
-wscript "C:\Users\shaynir\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\youtube_research_app.vbs"
+taskkill /F /IM python.exe /T 2>/dev/null; sleep 2; python -m streamlit run app.py --server.headless true --server.fileWatcherType none
 ```
+Then tell the user to refresh `localhost:8501`. The user should never need to restart manually.
 
 ## Obsidian vault structure
 - Each topic gets its own folder (e.g. `asthma2/`, `Natural sleep/`)
